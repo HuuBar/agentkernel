@@ -1,0 +1,2 @@
+# Core — no external dependencies
+# Python >= 3.10 required

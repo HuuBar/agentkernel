@@ -1,0 +1,29 @@
+name: Benchmark
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -e ".[benchmark]"
+
+      - name: Run benchmarks
+        run: |
+          python benchmarks/01_openai_vs_bacg.py
+          python benchmarks/02_cascade_control.py
+          python benchmarks/03_multi_agent_budget.py
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

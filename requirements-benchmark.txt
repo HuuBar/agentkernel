@@ -1,0 +1,4 @@
+openai>=1.0
+litellm>=1.0
+httpx>=0.24
+aiohttp>=3.8

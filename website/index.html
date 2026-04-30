@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgentKernel — Budget-Aware Call Graph (BACG)</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<h1>AgentKernel</h1>
+<div class="subtitle">Budget-Aware Call Graph (BACG) — Topology-aware resource allocation for AI Agents</div>
+
+<div>
+    <span class="badge core">BACG</span>
+    <span class="badge core">BudgetToken</span>
+    <span class="badge arch">Topology Constraints</span>
+    <span class="badge arch">6-Layer Architecture</span>
+    <span class="badge research">Zero Dependencies</span>
+    <br><br>
+</div>
+
+<div class="highlight">
+<strong>不是又一个Agent应用，而是Agent基础设施层的核心缺失。</strong><br>
+当前主流框架（LangGraph、AutoGen/MAF、CrewAI）解决了"如何让Agent协作"的问题，但都没有解决"如何让Agent系统可持续运行"的问题。
+AgentKernel 填补的就是这个空白：一个让Agent从 "toy demo" 走向 "production infrastructure" 的运行时内核。
+</div>
+
+<div class="stats">
+    <div><div class="stat">7</div><div class="stat-label">Topology Modules</div></div>
+    <div><div class="stat">6</div><div class="stat-label">Constraint Layers</div></div>
+    <div><div class="stat">0</div><div class="stat-label">External Dependencies</div></div>
+    <div><div class="stat">3</div><div class="stat-label">Benchmark Scenarios</div></div>
+</div>
+
+<h2>Why AgentKernel?</h2>
+
+<table>
+    <tr><th>Capability</th><th>LangGraph</th><th>AutoGen</th><th>CrewAI</th><th>OpenAI SDK</th><th>AgentKernel</th></tr>
+    <tr><td>Budget-Aware Call Graph (BACG)</td><td class="cross">No</td><td class="cross">No</td><td class="cross">No</td><td class="cross">No</td><td class="check">Yes — Native</td></tr>
+    <tr><td>Topology-aware resource allocation</td><td class="cross">No</td><td class="cross">No</td><td class="cross">No</td><td class="cross">No</td><td class="check">Yes — 6 Layers</td></tr>
+    <tr><td>Multi-dimensional BudgetToken</td><td class="cross">No</td><td class="cross">No</td><td class="cross">No</td><td class="cross">No</td><td class="check">Yes — CHERI Monotonicity</td></tr>
+    <tr><td>Framework Adapters (LangGraph/AutoGen/OpenAI)</td><td class="cross">No</td><td class="cross">No</td><td class="cross">No</td><td class="cross">No</td><td class="check">Yes — All 3</td></tr>
+    <tr><td>Zero external dependencies</td><td class="cross">No</td><td class="cross">No</td><td class="cross">No</td><td class="cross">No</td><td class="check">Yes — Pure Python</td></tr>
+</table>
+
+<h2>Architecture</h2>
+
+<div class="arch-diagram">
+┌─────────────────────────────────────────────────────────────┐
+│                  BACG Topology Architecture                   │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│   ┌──────────────┐  ┌──────────────┐  ┌──────────────┐    │
+│   │  Identity    │  │   Resource   │  │   Security   │    │
+│   │   Layer      │  │    Layer     │  │    Layer     │    │
+│   └──────┬───────┘  └──────┬───────┘  └──────┬───────┘    │
+│   ┌──────┴───────┐  ┌──────┴───────┐  ┌──────┴───────┐    │
+│   │   Quality    │  │ Concurrency  │  │   Topology   │    │
+│   │    Layer     │  │    Layer     │  │    Layer     │    │
+│   └──────┬───────┘  └──────┬───────┘  └──────┬───────┘    │
+│          └─────────────────┬──────────────────┘              │
+│                            │                                │
+│                    ┌───────┴───────┐                        │
+│                    │   CallGraph   │                        │
+│                    │ (Attribute    │                        │
+│                    │  Directed Tree)│                       │
+│                    └───────┬───────┘                        │
+│                            │                                │
+│              ┌─────────────┼─────────────┐                  │
+│              ▼             ▼             ▼                  │
+│        ┌─────────┐  ┌─────────┐  ┌─────────┐              │
+│        │BudgetToken│ │BACGAgent│  │BACGRuntime│              │
+│        └─────────┘  └─────────┘  └─────────┘              │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+</div>
+
+<h2>Core Modules</h2>
+
+<div class="grid">
+    <div class="card">
+        <h4>topology/token.py — BudgetToken</h4>
+        <p>多维资源令牌，借鉴 Petri 网 token 流动和 CHERI 能力单调性。split() 保证总量只减不增。</p>
+    </div>
+    <div class="card">
+        <h4>topology/constraints.py — 6 Constraint Layers</h4>
+        <p>Photoshop 图层风格的6层约束面：Identity、Resource、Security、Quality、Concurrency、Topology。</p>
+    </div>
+    <div class="card">
+        <h4>topology/graph.py — CallGraph</h4>
+        <p>属性有向树容器，支持5种图变换：Survey、Calibrate、Expand、Contract、Rebalance。</p>
+    </div>
+    <div class="card">
+        <h4>topology/agent.py — BACGAgent</h4>
+        <p>拓扑感知 Agent，执行循环：Survey → Calibrate → Exploit。分支过程模型预测资源消耗。</p>
+    </div>
+    <div class="card">
+        <h4>topology/integration.py — BACGRuntime</h4>
+        <p>统一资源控制运行时，支持 SDK/上下文管理器/装饰器三种模式，内置 OpenAI/LangGraph/AutoGen 适配器。</p>
+    </div>
+    <div class="card">
+        <h4>topology/branching.py — BranchingModel</h4>
+        <p>Galton-Watson 分支过程模型：E[Total] = E[C] / (1 - m)。m >= 1 时强制终止。</p>
+    </div>
+</div>
+
+<h2>Quick Start</h2>
+
+<pre>from agentkernel import create_bacg
+
+# Create a BACG runtime with 2000 token budget
+runtime = create_bacg(budget={"tokens": 2000}, framework="sdk")
+
+# Check if operation is allowed
+can_do, reason = runtime.can_execute("llm_call", {"tokens": 500})
+if can_do:
+    print("Operation allowed!")
+else:
+    print(f"Blocked: {reason}")
+
+# Use context manager
+async with runtime.monitor("search", {"tokens": 200}) as op:
+    results = await search_api.execute(query)
+    op.record_actual(results.usage)</pre>
+
+<h2>Mathematical Foundation</h2>
+
+<div class="highlight">
+<strong>Galton-Watson 分支过程：</strong><br><br>
+E[Total] = E[C] / (1 - m) 当 m &lt; 1 时收敛<br><br>
+其中：<br>
+  m = E[Z] = 平均分支因子<br>
+  E[C] = 每次调用的平均消耗<br><br>
+如果 m &ge; 1，期望总消耗无穷大 &rarr; 必须强制终止。
+</div>
+
+<h2>License</h2>
+<p>MIT License — open for contribution, fork, and production use.</p>
+
+<footer>
+    Built with deep research across agent ecosystem dimensions.<br>
+    AgentKernel — Making AI Agents production-ready.
+</footer>
+
+<script src="js/app.js"></script>
+</body>
+</html>
