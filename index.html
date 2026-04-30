@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgentKernel — Budget-Aware Call Graph</title>
+<style>
+:root{--bg:#0a0e17;--fg:#e6edf3;--muted:#7d8590;--border:#1f2937;--card:#111821;--accent:#58a6ff;--accent2:#3fb950;--accent3:#d29922;--purple:#a371f7;}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--fg);line-height:1.7;max-width:1000px;margin:0 auto;padding:40px 28px}
+.hero{text-align:center;margin-bottom:48px}
+.hero h1{font-size:2.6rem;font-weight:800;color:#fff;margin-bottom:12px}
+.hero .subtitle{font-size:1.15rem;color:var(--muted);max-width:600px;margin:0 auto 16px}
+.hero .tagline{color:var(--accent);font-weight:600;padding:8px 24px;border-radius:100px;background:rgba(88,166,255,0.1);display:inline-block}
+.math-box{background:#0d1117;border:1px solid var(--border);border-radius:12px;padding:24px;margin:24px 0;text-align:center}
+.math-formula{font-family:'SF Mono',Monospace,monospace;font-size:1.4rem;color:#fff;margin-bottom:16px}
+.comparison{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin:28px 0}
+.comp-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px}
+.comp-card h3{font-size:1.05rem;color:#fff;margin-bottom:10px}
+.comp-card p{color:var(--muted);font-size:0.85rem;line-height:1.5}
+.comp-card.bacg{border-color:var(--purple)}
+.comp-card.bacg h3{color:var(--purple)}
+.badge{display:inline-block;padding:4px 12px;border-radius:6px;font-size:0.75rem;font-weight:600;margin-top:8px}
+.badge-success{background:rgba(63,185,80,0.15);color:var(--accent2)}
+.badge-danger{background:rgba(248,81,73,0.15);color:#f85149}
+.result-box{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;margin:20px 0}
+.result-box h3{color:#fff;margin-bottom:12px;font-size:1.1rem}
+.result-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)}
+.result-row:last-child{border-bottom:none}
+.result-label{color:var(--muted);font-size:0.9rem}
+.result-value{font-family:monospace;font-size:0.9rem}
+.result-value.success{color:var(--accent2)}
+.result-value.danger{color:#f85149}
+pre{background:#0d1117;border:1px solid var(--border);border-radius:12px;padding:18px 22px;overflow-x:auto;font-family:'SF Mono',monospace;font-size:0.82rem;line-height:1.6;margin:16px 0}
+.key{color:var(--accent)}.str{color:var(--accent2)}.num{color:var(--accent3)}
+footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--border);text-align:center;color:var(--muted);font-size:0.85rem}
+a{color:var(--accent);text-decoration:none}
+</style>
+</head>
+<body>
+
+<div class="hero">
+<h1>AgentKernel</h1>
+<p class="subtitle">Budget-Aware Call Graph — 拓扑感知资源分配</p>
+<span class="tagline">E[Total] = E[C] / (1 - m)</span>
+</div>
+
+<div class="math-box">
+<div class="math-formula">
+E[Total] = <span style="color:var(--accent2)">E[C]</span> / (1 - <span style="color:#f85149">m</span>)
+</div>
+<p style="color:var(--muted);font-size:0.85rem">
+m &lt; 1: 收敛 | m = 1: 临界 | m &gt; 1: 发散 → 强制终止
+</p>
+</div>
+
+<h2 style="font-size:1.3rem;font-weight:700;color:#fff;margin-top:48px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:8px">
+三种图模型的本质区别
+</h2>
+
+<div class="comparison">
+<div class="comp-card">
+<h3>LangGraph</h3>
+<p>控制流图 — 节点=函数，边=路由</p>
+<p style="margin-top:8px"><strong>问：</strong>下一步执行哪个函数？</p>
+<span class="badge badge-danger">无资源管理</span>
+</div>
+<div class="comp-card">
+<h3>GraphRAG</h3>
+<p>知识图 — 节点=实体，边=语义关系</p>
+<p style="margin-top:8px"><strong>问：</strong>什么与什么相关？</p>
+<span class="badge badge-danger">无资源管理</span>
+</div>
+<div class="comp-card bacg">
+<h3>BACG (Ours)</h3>
+<p>资源拓扑图 — 节点=资源实例，边=消耗传播</p>
+<p style="margin-top:8px"><strong>问：</strong>这次调用会不会超预算？</p>
+<span class="badge badge-success">核心能力</span>
+</div>
+</div>
+
+<h2 style="font-size:1.3rem;font-weight:700;color:#fff;margin-top:48px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:8px">
+真实 API 验证结果
+</h2>
+
+<div class="result-box">
+<h3>Benchmark 1: 连续调用控制</h3>
+<div class="result-row">
+<span class="result-label">无 BACG (3 次调用)</span>
+<span class="result-value danger">1236 tokens</span>
+</div>
+<div class="result-row">
+<span class="result-label">有 BACG (预算 800)</span>
+<span class="result-value success">653 tokens (2次通过, 1次拦截)</span>
+</div>
+<div class="result-row">
+<span class="result-label">节省</span>
+<span class="result-value success">583 tokens (47.2%)</span>
+</div>
+</div>
+
+<div class="result-box">
+<h3>Benchmark 2: 级联调用控制</h3>
+<div class="result-row">
+<span class="result-label">初始任务</span>
+<span class="result-value">337 tokens</span>
+</div>
+<div class="result-row">
+<span class="result-label">子任务 1</span>
+<span class="result-value danger">BLOCKED (预算不足)</span>
+</div>
+<div class="result-row">
+<span class="result-label">子任务 2</span>
+<span class="result-value danger">BLOCKED (预算不足)</span>
+</div>
+<div class="result-row">
+<span class="result-label">结果</span>
+<span class="result-value success">✅ 无超预算</span>
+</div>
+</div>
+
+<h2 style="font-size:1.3rem;font-weight:700;color:#fff;margin-top:48px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:8px">
+快速开始
+</h2>
+
+<pre>
+<span class="comment"># 安装</span>
+pip install git+https://github.com/HuuBar/agentkernel.git
+
+<span class="comment"># SDK 模式</span>
+<span class="key">from</span> agentkernel <span class="key">import</span> BACGRuntime
+
+runtime = BACGRuntime(budget={<span class="str">"tokens"</span>: <span class="num">5000</span>, <span class="str">"usd"</span>: <span class="num">5.0</span>})
+result = <span class="key">await</span> runtime.llm_call(prompt, model=<span class="str">"gpt-4"</span>)
+
+<span class="comment"># 检查状态</span>
+print(runtime.remaining)  <span class="comment"># 剩余预算</span>
+print(runtime.branching_stats)  <span class="comment"># 拓扑统计</span>
+</pre>
+
+<h2 style="font-size:1.3rem;font-weight:700;color:#fff;margin-top:48px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:8px">
+核心架构
+</h2>
+
+<pre>
+┌─────────────────────────────────────────┐
+│           BACG Agent                     │
+│  ┌─────────┐ ┌──────────┐ ┌──────────┐  │
+│  │ Survey  │ │ Calibrate│ │ Exploit  │  │
+│  └────┬────┘ └────┬─────┘ └────┬─────┘  │
+│       │           │            │          │
+│  ┌────▼────┐ ┌────▼─────┐ ┌───▼──────┐  │
+│  │CallGraph│ │Branching │ │Topology  │  │
+│  │         │ │ Model    │ │ Budget   │  │
+│  │• nodes  │ │• m, E[C]│ │• allocate│  │
+│  │• edges  │ │• observe │ │• tighten│  │
+│  └─────────┘ └──────────┘ └──────────┘  │
+└─────────────────────────────────────────┘
+</pre>
+
+<h2 style="font-size:1.3rem;font-weight:700;color:#fff;margin-top:48px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:8px">
+六层约束面
+</h2>
+
+<pre>
+Layer 6: 拓扑 (Topology)     → 全局: max_depth, branching factor
+Layer 5: 并发 (Concurrency)  → 层级: max parallel nodes per level
+Layer 4: 质量 (Quality)      → 路径: quality decay along path
+Layer 3: 安全 (Security)     → 边级: allowed child operations
+Layer 2: 资源 (Resource)     → 路径: cumulative budget token flow
+Layer 1: 身份 (Identity)     → 节点: actor permission check
+</pre>
+
+<h2 style="font-size:1.3rem;font-weight:700;color:#fff;margin-top:48px;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:8px">
+三层嵌入
+</h2>
+
+<pre>
+Layer 3: Gateway  (零侵入)     → 网络代理, 改环境变量即可
+Layer 2: Adapter  (框架集成)   → LangGraph / AutoGen / OpenAI SDK
+Layer 1: SDK      (深度集成)   → 直接调用 runtime.llm_call()
+</pre>
+
+<footer>
+AgentKernel — Budget-Aware Call Graph<br>
+<a href="https://github.com/HuuBar/agentkernel">GitHub</a> ·
+<a href="https://github.com/HuuBar/agentkernel/blob/main/BENCHMARK_RESULT.md">Benchmark Results</a><br>
+<br>
+<em>"Agent 的消耗不是标量，而是其调用图上的分支过程"</em>
+</footer>
+
+</body>
+</html>
